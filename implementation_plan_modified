@@ -1,0 +1,89 @@
+# Refactor: Firebase-Only KYC + Simulated Wallet Payments
+
+## Summary
+Remove all external KYC (Digio) and payment (Razorpay) dependencies. Replace with:
+1. **Two-OTP Firebase KYC**: Phone OTP → Aadhaar number → Second OTP (UIDAI-styled SMS) → Verified
+2. **Simulated Firestore Wallet**: Users get random balance + auto-generated UPI ID. Payments are atomic Firestore balance transfers with company escrow account.
+
+## Proposed Changes
+
+### Module 1: Config & Environment
+#### [MODIFY] [.env](file:///d:/ShareMyMeal/backend/.env)
+Remove Digio/Razorpay/Cashfree keys. Add simulated payment config (`PLATFORM_UPI_ID`, `MIN/MAX_WALLET_BALANCE`).
+
+#### [MODIFY] [config.py](file:///d:/ShareMyMeal/backend/app/config.py)
+Remove Digio/Razorpay fields. Add wallet simulation config.
+
+---
+
+### Module 2: Data Models
+#### [MODIFY] [user.py](file:///d:/ShareMyMeal/backend/app/models/user.py)
+Add [upi_id](file:///d:/ShareMyMeal/backend/app/utils/validators.py#43-51), `wallet_balance`, `aadhaar_verified`, `kyc_completed`, `kyc_timestamp`. Remove [KYCCallbackPayload](file:///d:/ShareMyMeal/backend/app/models/user.py#66-73). Rename [KYCVerifyOTPRequest](file:///d:/ShareMyMeal/backend/app/models/user.py#59-64) to not need `request_id`.
+
+#### [MODIFY] [payment.py](file:///d:/ShareMyMeal/backend/app/models/payment.py)
+Replace Razorpay schemas with wallet-based: `WalletPaymentRequest`, `WalletPaymentResponse`, `QRPaymentScanRequest`, `TransactionLog`.
+
+#### [MODIFY] [order.py](file:///d:/ShareMyMeal/backend/app/models/order.py)
+Remove `razorpay_order_id`, `razorpay_payment_id`. Add `paid_held` to payment status. Update `payment_status` literals.
+
+---
+
+### Module 3: Backend Services
+#### [MODIFY] [kyc_service.py](file:///d:/ShareMyMeal/backend/app/services/kyc_service.py)
+Complete rewrite → Firebase-only. `store_aadhaar()` masks & writes to Firestore. No external API calls.
+
+#### [MODIFY] [payment_service.py](file:///d:/ShareMyMeal/backend/app/services/payment_service.py)
+Complete rewrite → `WalletPaymentService`. Methods: `generate_upi_id()`, `assign_wallet()`, `deduct_from_buyer()`, `credit_company()`, `payout_to_seller()`, `refund_buyer()`. All Firestore atomic ops. Transaction logging.
+
+---
+
+### Module 4: Backend Routers
+#### [MODIFY] [auth.py](file:///d:/ShareMyMeal/backend/app/routers/auth.py)
+KYC endpoint now stores masked Aadhaar + sets `kyc_completed: true`. Remove Digio callback. Profile creation auto-generates UPI ID + wallet balance.
+
+#### [MODIFY] [payments.py](file:///d:/ShareMyMeal/backend/app/routers/payments.py)
+Complete rewrite → wallet endpoints: `POST /process` (prepaid), `POST /scan-qr` (UPI on delivery QR scan), `POST /payout/{order_id}`, `POST /refund/{order_id}`, `GET /balance/{uid}`, `GET /transactions/{uid}`.
+
+#### [MODIFY] [orders.py](file:///d:/ShareMyMeal/backend/app/routers/orders.py)
+Remove Razorpay calls. Prepaid orders call wallet service directly. Confirm pickup triggers wallet payout.
+
+#### [MODIFY] [main.py](file:///d:/ShareMyMeal/backend/app/main.py)
+Update description, health check. Add startup hook to ensure company account exists.
+
+---
+
+### Module 5: Frontend Screens (React Native)
+#### [MODIFY] [KYCScreen.js](file:///d:/ShareMyMeal/mobile/src/screens/auth/KYCScreen.js)
+Show "OTP sent by UIDAI" messaging. Store masked Aadhaar on success. 2-step (not 3-step) flow.
+
+#### [MODIFY] [ProfileSetupScreen.js](file:///d:/ShareMyMeal/mobile/src/screens/auth/ProfileSetupScreen.js)
+Display generated UPI ID and wallet balance after profile creation.
+
+#### [MODIFY] [ListingDetailScreen.js](file:///d:/ShareMyMeal/mobile/src/screens/home/ListingDetailScreen.js)  
+Prepaid flow shows wallet confirmation instead of Razorpay checkout. Show wallet balance.
+
+#### [MODIFY] [OrderTrackingScreen.js](file:///d:/ShareMyMeal/mobile/src/screens/orders/OrderTrackingScreen.js)
+UPI-on-delivery: show QR code at pickup. Add QR scan for seller side.
+
+#### [MODIFY] [DashboardScreen.js](file:///d:/ShareMyMeal/mobile/src/screens/home/DashboardScreen.js)
+Show wallet balance in header.
+
+#### [MODIFY] [api.js](file:///d:/ShareMyMeal/mobile/src/services/api.js)
+Update payment API endpoints to match new wallet-based routes.
+
+---
+
+## Verification Plan
+### Automated Tests
+```bash
+cd D:\ShareMyMeal\backend
+.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
+# Test: GET /health → verify no Razorpay/Digio in services
+# Test: POST /api/auth/profile → verify UPI ID + wallet_balance returned
+# Test: POST /api/payments/process → verify wallet deduction
+# Test: POST /api/payments/payout/{id} → verify seller credit
+```
+
+### Browser Tests
+- Open `/docs` and test all new wallet endpoints
+- Start Expo dev server and verify screens render

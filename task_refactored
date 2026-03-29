@@ -1,0 +1,33 @@
+# ShareMyMeal — Refactor Task List
+
+## Module 1: Config & Environment
+- [x] Rewrite [.env](file:///d:/ShareMyMeal/backend/.env) — remove Digio/Razorpay, add wallet config
+- [x] Rewrite [config.py](file:///d:/ShareMyMeal/backend/app/config.py) — remove external keys, add wallet settings
+
+## Module 2: Data Models
+- [x] Rewrite [user.py](file:///d:/ShareMyMeal/backend/app/models/user.py) — add upi_id, wallet_balance, kyc fields
+- [x] Rewrite [payment.py](file:///d:/ShareMyMeal/backend/app/models/payment.py) — wallet schemas instead of Razorpay
+- [x] Update [order.py](file:///d:/ShareMyMeal/backend/app/models/order.py) — remove razorpay fields, update payment_status
+
+## Module 3: Backend Services
+- [x] Rewrite [kyc_service.py](file:///d:/ShareMyMeal/backend/app/services/kyc_service.py) — Firebase-only, mask & store Aadhaar
+- [x] Rewrite [payment_service.py](file:///d:/ShareMyMeal/backend/app/services/payment_service.py) — Firestore wallet operations
+
+## Module 4: Backend Routers
+- [x] Rewrite [auth.py](file:///d:/ShareMyMeal/backend/app/routers/auth.py) — two-OTP KYC, auto UPI/wallet on profile create
+- [x] Rewrite [payments.py](file:///d:/ShareMyMeal/backend/app/routers/payments.py) — wallet endpoints (process, scan-qr, payout, refund, balance)
+- [x] Update [orders.py](file:///d:/ShareMyMeal/backend/app/routers/orders.py) — wallet calls instead of Razorpay
+- [x] Update [main.py](file:///d:/ShareMyMeal/backend/app/main.py) — company account init, updated health check
+
+## Module 5: Frontend Screens
+- [x] Update [KYCScreen.js](file:///d:/ShareMyMeal/mobile/src/screens/auth/KYCScreen.js) — UIDAI-styled OTP flow
+- [x] Update [ProfileSetupScreen.js](file:///d:/ShareMyMeal/mobile/src/screens/auth/ProfileSetupScreen.js) — show UPI ID + wallet
+- [x] Update [ListingDetailScreen.js](file:///d:/ShareMyMeal/mobile/src/screens/home/ListingDetailScreen.js) — selectable payment with wallet balance check
+- [x] Update [OrderTrackingScreen.js](file:///d:/ShareMyMeal/mobile/src/screens/orders/OrderTrackingScreen.js) — QR code for UPI-on-delivery + payment info card
+- [x] Update [DashboardScreen.js](file:///d:/ShareMyMeal/mobile/src/screens/home/DashboardScreen.js) — wallet balance badge in header
+- [x] Update [api.js](file:///d:/ShareMyMeal/mobile/src/services/api.js) — new wallet endpoint wrappers
+
+## Verification
+- [x] Backend import test — all imports pass
+- [x] All API routes registered correctly
+- [x] Removed razorpay from requirements.txt
